@@ -223,9 +223,11 @@ public class Snmp4JWalker extends SnmpWalker {
         try {
             if (m_session == null) {
                 m_session = m_agentConfig.createSnmpSession();
+                Snmp4JStrategy.trackSession(m_session);
                 m_session.listen();
             }
         } catch (final IOException e) {
+            close();
             throw new SnmpException(e);
         }
 
@@ -234,11 +236,7 @@ public class Snmp4JWalker extends SnmpWalker {
             m_session.send(snmp4JPduBuilder.getPdu(), m_tgt, null, m_listener);
         } catch (final IOException e) {
             LOG.debug("Failed to send pdu of size {}", snmp4JPduBuilder.getPdu().size(), e);
-            try {
-                m_session.close();
-            } catch (final IOException closeException) {
-                LOG.error("Failed to close session after previous send failed.  Possible leaked thread.", closeException);
-            }
+            close();
         }
     }
     
@@ -253,6 +251,8 @@ public class Snmp4JWalker extends SnmpWalker {
                 m_session.close();
             } catch (IOException e) {
                 LOG.error("{}: Unexpected Error occured closing SNMP session for: {}", getName(), m_agentConfig, e);
+            } finally {
+                Snmp4JStrategy.reapSession(m_session);
             }
             m_session = null;
         }
